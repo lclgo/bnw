@@ -68,7 +68,7 @@ export default function TableOfContents({
 
   return (
     <>
-      {/* Toggle Button - Fixed Position */}
+      {/* Toggle Button - Fixed Position (only when closed) */}
       {!visible && (
         <button className="toc-toggle-btn" onClick={onToggle} title="Open Table of Contents">
           <ChevronLeft className="toggle-icon" />
