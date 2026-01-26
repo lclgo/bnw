@@ -1,0 +1,133 @@
+.doc-editor-wrapper {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.doc-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.doc-editor.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.doc-editor.empty p {
+  color: #9ca3af;
+  font-size: 15px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  height: 48px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.title-section {
+  flex: 1;
+}
+
+.doc-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.doc-title:hover {
+  background: #f3f4f6;
+}
+
+.title-input {
+  font-size: 16px;
+  font-weight: 600;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+  width: 100%;
+  max-width: 500px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: #374151;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1f2937;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.btn-icon {
+  background: transparent;
+  padding: 8px;
+  font-size: 16px;
+  border-radius: 6px;
+}
+
+.btn-icon:hover {
+  background: #f3f4f6;
+}
+
+.editor-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+  padding-right: 48px;
+  background: #ffffff;
+}
+
+.editor-content .bn-editor {
+  max-width: 800px;
+  margin: 0;
+  margin-left: 32px;
+  padding: 24px;
+  min-height: 500px;
+}
