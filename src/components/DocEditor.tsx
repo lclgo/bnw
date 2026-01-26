@@ -1,4 +1,6 @@
+import { codeBlockOptions } from "@blocknote/code-block";
 import type { Block } from "@blocknote/core";
+import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
@@ -12,6 +14,13 @@ interface DocEditorProps {
   docId: string;
   onTitleChange: () => void;
 }
+
+const schema = BlockNoteSchema.create({
+  blockSpecs: {
+    ...defaultBlockSpecs,
+    codeBlock: createCodeBlockSpec(codeBlockOptions),
+  },
+});
 
 export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   // Synchronously load document data on mount
@@ -33,7 +42,9 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [notFound] = useState(initialData.notFound);
   const editorInitialized = useRef(false);
 
-  const editor = useCreateBlockNote();
+  const editor = useCreateBlockNote({
+    schema,
+  });
 
   // Initialize editor content after editor is ready
   useEffect(() => {
