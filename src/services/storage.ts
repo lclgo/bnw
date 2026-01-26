@@ -91,6 +91,50 @@ export function updateDocParent(id: string, newParentId: string | null): void {
   saveDocMeta(meta);
 }
 
+export function moveDocToPosition(
+  id: string,
+  newParentId: string | null,
+  targetId: string | null,
+  position: 'before' | 'after'
+): void {
+  const meta = getDocMeta(id);
+  if (!meta) return;
+
+  const siblings = getAllDocMetas()
+    .filter((m) => m.parentId === newParentId && m.id !== id)
+    .sort((a, b) => a.order - b.order);
+
+  let newOrder: number;
+
+  if (targetId === null) {
+    // Insert at end
+    newOrder = siblings.length > 0 ? siblings[siblings.length - 1].order + 1 : 0;
+  } else {
+    const targetIndex = siblings.findIndex((s) => s.id === targetId);
+    if (targetIndex === -1) {
+      newOrder = siblings.length > 0 ? siblings[siblings.length - 1].order + 1 : 0;
+    } else if (position === 'before') {
+      if (targetIndex === 0) {
+        newOrder = siblings[0].order - 1;
+      } else {
+        newOrder = (siblings[targetIndex - 1].order + siblings[targetIndex].order) / 2;
+      }
+    } else {
+      // position === 'after'
+      if (targetIndex === siblings.length - 1) {
+        newOrder = siblings[targetIndex].order + 1;
+      } else {
+        newOrder = (siblings[targetIndex].order + siblings[targetIndex + 1].order) / 2;
+      }
+    }
+  }
+
+  meta.parentId = newParentId;
+  meta.order = newOrder;
+  meta.updatedAt = Date.now();
+  saveDocMeta(meta);
+}
+
 export function deleteDoc(id: string): void {
   const allMetas = getAllDocMetas();
   const children = allMetas.filter((m) => m.parentId === id);

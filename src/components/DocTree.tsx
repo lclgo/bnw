@@ -6,6 +6,7 @@ import {
     createDoc,
     deleteDoc,
     getDocTree,
+    moveDocToPosition,
     updateDocParent,
     updateDocTitle,
 } from "../services/storage";
@@ -26,6 +27,44 @@ interface DocTreeProps {
   onTreeChange: () => void;
 }
 
+interface DropGapProps {
+  targetId: string;
+  parentId: string | null;
+  position: 'before' | 'after';
+  depth: number;
+  onDrop: (draggedId: string, targetId: string, parentId: string | null, position: 'before' | 'after') => void;
+}
+
+// Separate drop zone between items for reordering
+function DropGap({ targetId, parentId, position, depth, onDrop }: DropGapProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isOver, canDrop }, drop] = useDrop({
+    accept: ItemType,
+    drop: (item: DragItem) => {
+      if (item.id !== targetId) {
+        onDrop(item.id, targetId, parentId, position);
+      }
+    },
+    canDrop: (item: DragItem) => item.id !== targetId,
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  drop(ref);
+
+  return (
+    <div
+      ref={ref}
+      className={`drop-gap ${isOver && canDrop ? 'drop-gap-active' : ''}`}
+    >
+      <div className="drop-gap-indent" style={{ width: depth * 16 + 8 }} />
+      <div className="drop-gap-line" />
+    </div>
+  );
+}
+
 interface TreeItemProps {
   node: DocNode;
   depth: number;
@@ -36,7 +75,10 @@ interface TreeItemProps {
   onAddChild: (parentId: string) => void;
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
-  onMove: (draggedId: string, targetId: string) => void;
+  onMoveAsChild: (draggedId: string, targetId: string) => void;
+  onMoveToPosition: (draggedId: string, targetId: string, parentId: string | null, position: 'before' | 'after') => void;
+  parentId: string | null;
+  isFirst: boolean;
 }
 
 function TreeItem({
@@ -49,7 +91,10 @@ function TreeItem({
   onAddChild,
   expandedIds,
   onToggleExpand,
-  onMove,
+  onMoveAsChild,
+  onMoveToPosition,
+  parentId,
+  isFirst,
 }: TreeItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -67,12 +112,13 @@ function TreeItem({
     }),
   });
 
+  // Drop on item = become child
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemType,
     drop: (item: DragItem, monitor) => {
       if (monitor.didDrop()) return;
       if (item.id !== node.id) {
-        onMove(item.id, node.id);
+        onMoveAsChild(item.id, node.id);
       }
     },
     canDrop: (item: DragItem) => item.id !== node.id,
@@ -95,16 +141,27 @@ function TreeItem({
 
   return (
     <div className="tree-item-container">
+      {/* Drop gap before first item */}
+      {isFirst && (
+        <DropGap
+          targetId={node.id}
+          parentId={parentId}
+          position="before"
+          depth={depth}
+          onDrop={onMoveToPosition}
+        />
+      )}
+
       <div
         ref={ref}
-        style={{ paddingLeft: depth * 16 + 8 }}
         className={`tree-item ${selectedId === node.id ? "selected" : ""} ${
           isDragging ? "dragging" : ""
-        } ${isOver && canDrop ? "drop-target" : ""}`}
+        } ${isOver && canDrop ? "drop-inside" : ""}`}
         onClick={() => onSelect(node.id)}
         onMouseEnter={() => setShowMenu(true)}
         onMouseLeave={() => setShowMenu(false)}
       >
+        <div className="tree-item-indent" style={{ width: depth * 16 }} />
         {hasChildren ? (
           <button
             className="expand-btn"
@@ -182,9 +239,18 @@ function TreeItem({
         )}
       </div>
 
+      {/* Drop gap after this item */}
+      <DropGap
+        targetId={node.id}
+        parentId={parentId}
+        position="after"
+        depth={depth}
+        onDrop={onMoveToPosition}
+      />
+
       {hasChildren && isExpanded && (
         <div className="children">
-          {node.children.map((child) => (
+          {node.children.map((child, index) => (
             <TreeItem
               key={child.id}
               node={child}
@@ -196,7 +262,10 @@ function TreeItem({
               onAddChild={onAddChild}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
-              onMove={onMove}
+              onMoveAsChild={onMoveAsChild}
+              onMoveToPosition={onMoveToPosition}
+              parentId={node.id}
+              isFirst={index === 0}
             />
           ))}
         </div>
@@ -248,11 +317,26 @@ function DocTreeInner({
     });
   };
 
-  const handleMove = (draggedId: string, targetId: string) => {
+  const handleMoveAsChild = (draggedId: string, targetId: string) => {
     if (isDescendant(tree, draggedId, targetId)) return;
     
     updateDocParent(draggedId, targetId);
     setExpandedIds((prev) => new Set(prev).add(targetId));
+    onTreeChange();
+  };
+
+  const handleMoveToPosition = (
+    draggedId: string,
+    targetId: string,
+    parentId: string | null,
+    position: 'before' | 'after'
+  ) => {
+    if (parentId && isDescendant(tree, draggedId, parentId)) return;
+    
+    moveDocToPosition(draggedId, parentId, targetId, position);
+    if (parentId) {
+      setExpandedIds((prev) => new Set(prev).add(parentId));
+    }
     onTreeChange();
   };
 
@@ -299,7 +383,7 @@ function DocTreeInner({
             <p className="hint-text">Click + to create one</p>
           </div>
         ) : (
-          tree.map((node) => (
+          tree.map((node, index) => (
             <TreeItem
               key={node.id}
               node={node}
@@ -311,7 +395,10 @@ function DocTreeInner({
               onAddChild={handleAddChild}
               expandedIds={expandedIds}
               onToggleExpand={handleToggleExpand}
-              onMove={handleMove}
+              onMoveAsChild={handleMoveAsChild}
+              onMoveToPosition={handleMoveToPosition}
+              parentId={null}
+              isFirst={index === 0}
             />
           ))
         )}
