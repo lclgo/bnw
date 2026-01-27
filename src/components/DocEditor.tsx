@@ -34,6 +34,16 @@ const [loading, setLoading] = useState(true);
 
   const editor = useCreateBlockNote({
     schema,
+    uploadFile: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/images/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      return data.url;
+    },
   });
 
   // Load document data asynchronously

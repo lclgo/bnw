@@ -4,11 +4,13 @@ import type { Connect, Plugin } from "vite";
 
 const DATA_DIR = path.resolve(__dirname, "wiki-data");
 const DOCS_DIR = path.join(DATA_DIR, "docs");
+const IMAGES_DIR = path.join(DATA_DIR, "images");
 const INDEX_FILE = path.join(DATA_DIR, "index.json");
 
 function ensureDirectories() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DOCS_DIR)) fs.mkdirSync(DOCS_DIR, { recursive: true });
+  if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
   if (!fs.existsSync(INDEX_FILE)) fs.writeFileSync(INDEX_FILE, JSON.stringify({ docs: {} }, null, 2));
 }
 
@@ -40,6 +42,77 @@ async function parseBody<T>(req: Connect.IncomingMessage): Promise<T> {
       } catch {
         resolve({} as T);
       }
+    });
+  });
+}
+
+function generateImageId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${timestamp}-${random}`;
+}
+
+function getExtension(contentType: string): string {
+  const mimeToExt: Record<string, string> = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+  };
+  return mimeToExt[contentType] || ".png";
+}
+
+async function parseMultipartFormData(
+  req: Connect.IncomingMessage
+): Promise<{ filename: string; contentType: string; data: Buffer } | null> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks);
+      const contentType = req.headers["content-type"] || "";
+      const boundaryMatch = contentType.match(/boundary=(.+)/);
+      if (!boundaryMatch) {
+        resolve(null);
+        return;
+      }
+
+      const boundary = boundaryMatch[1];
+      const boundaryBuffer = Buffer.from(`--${boundary}`);
+      const parts = [];
+      let start = 0;
+
+      while (true) {
+        const boundaryIndex = body.indexOf(boundaryBuffer, start);
+        if (boundaryIndex === -1) break;
+        if (start !== 0) {
+          parts.push(body.slice(start, boundaryIndex - 2));
+        }
+        start = boundaryIndex + boundaryBuffer.length + 2;
+      }
+
+      for (const part of parts) {
+        const headerEnd = part.indexOf("\r\n\r\n");
+        if (headerEnd === -1) continue;
+
+        const headers = part.slice(0, headerEnd).toString();
+        const fileData = part.slice(headerEnd + 4);
+
+        const filenameMatch = headers.match(/filename="([^"]+)"/);
+        const contentTypeMatch = headers.match(/Content-Type:\s*(.+)/i);
+
+        if (filenameMatch && contentTypeMatch) {
+          resolve({
+            filename: filenameMatch[1],
+            contentType: contentTypeMatch[1].trim(),
+            data: fileData,
+          });
+          return;
+        }
+      }
+      resolve(null);
     });
   });
 }
@@ -198,6 +271,53 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
       deleteRecursive(params!.id);
       writeIndex(index);
       res.end(JSON.stringify({ success: true }));
+    },
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/images\/upload$/,
+    handler: async (req, res) => {
+      const fileData = await parseMultipartFormData(req);
+      if (!fileData) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: "No file uploaded" }));
+        return;
+      }
+
+      const ext = getExtension(fileData.contentType);
+      const imageId = generateImageId();
+      const filename = `${imageId}${ext}`;
+      const filePath = path.join(IMAGES_DIR, filename);
+
+      fs.writeFileSync(filePath, fileData.data);
+      res.end(JSON.stringify({ url: `/api/images/${filename}` }));
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/images\/([^/]+)$/,
+    handler: async (_req, res, params) => {
+      const filename = params!.id;
+      const filePath = path.join(IMAGES_DIR, filename);
+
+      if (!fs.existsSync(filePath)) {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ error: "Image not found" }));
+        return;
+      }
+
+      const ext = path.extname(filename).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+      };
+
+      res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
+      res.end(fs.readFileSync(filePath));
     },
   },
 ];
