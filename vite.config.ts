@@ -1,9 +1,10 @@
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
+import { wikiApiPlugin } from "./vite-plugin-wiki-api";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), wikiApiPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -12,21 +13,9 @@ export default defineConfig({
   server: {
     port: 37801,
     host: true,
-    proxy: {
-      "/api": {
-        target: "http://localhost:37802",
-        changeOrigin: true,
-      },
-    },
   },
   preview: {
     port: 37801,
     host: true,
-    proxy: {
-      "/api": {
-        target: "http://localhost:37802",
-        changeOrigin: true,
-      },
-    },
   },
 });

@@ -1,4 +1,3 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -12,6 +11,7 @@ import {
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Trash2 } from "./Icons";
 
 const ItemType = "WIKI_DOC";
 

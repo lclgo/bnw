@@ -1,7 +1,7 @@
 import type { Block } from "@blocknote/core";
-import { ChevronLeft, ChevronRight, List } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { TocItem } from "../types";
+import { ChevronLeft, ChevronRight, List } from "./Icons";
 import "./TableOfContents.css";
 
 interface TableOfContentsProps {
