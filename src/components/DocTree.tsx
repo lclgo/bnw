@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
-    createDoc,
-    deleteDoc,
-    getDocTree,
-    moveDocToPosition,
-    updateDocParent,
-    updateDocTitle,
+  createDoc,
+  deleteDoc,
+  getDocTree,
+  moveDocToPosition,
+  updateDocParent,
+  updateDocTitle,
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
@@ -27,43 +27,7 @@ interface DocTreeProps {
   onTreeChange: () => void;
 }
 
-interface DropGapProps {
-  targetId: string;
-  parentId: string | null;
-  position: 'before' | 'after';
-  depth: number;
-  onDrop: (draggedId: string, targetId: string, parentId: string | null, position: 'before' | 'after') => void;
-}
-
-// Separate drop zone between items for reordering
-function DropGap({ targetId, parentId, position, depth, onDrop }: DropGapProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [{ isOver, canDrop }, drop] = useDrop({
-    accept: ItemType,
-    drop: (item: DragItem) => {
-      if (item.id !== targetId) {
-        onDrop(item.id, targetId, parentId, position);
-      }
-    },
-    canDrop: (item: DragItem) => item.id !== targetId,
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
-  });
-
-  drop(ref);
-
-  return (
-    <div
-      ref={ref}
-      className={`drop-gap ${isOver && canDrop ? 'drop-gap-active' : ''}`}
-    >
-      <div className="drop-gap-indent" style={{ width: depth * 16 + 8 }} />
-      <div className="drop-gap-line" />
-    </div>
-  );
-}
+type DropPosition = 'before' | 'inside' | 'after' | null;
 
 interface TreeItemProps {
   node: DocNode;
@@ -78,7 +42,6 @@ interface TreeItemProps {
   onMoveAsChild: (draggedId: string, targetId: string) => void;
   onMoveToPosition: (draggedId: string, targetId: string, parentId: string | null, position: 'before' | 'after') => void;
   parentId: string | null;
-  isFirst: boolean;
 }
 
 function TreeItem({
@@ -94,12 +57,12 @@ function TreeItem({
   onMoveAsChild,
   onMoveToPosition,
   parentId,
-  isFirst,
 }: TreeItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(node.title);
   const [showMenu, setShowMenu] = useState(false);
+  const [dropPosition, setDropPosition] = useState<DropPosition>(null);
 
   const isExpanded = expandedIds.has(node.id);
   const hasChildren = node.children.length > 0;
@@ -112,14 +75,40 @@ function TreeItem({
     }),
   });
 
-  // Drop on item = become child
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemType,
+    hover: (item: DragItem, monitor) => {
+      if (!ref.current || item.id === node.id) {
+        setDropPosition(null);
+        return;
+      }
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverHeight = hoverBoundingRect.bottom - hoverBoundingRect.top;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+      const ratio = hoverClientY / hoverHeight;
+      
+      if (ratio < 0.3) {
+        setDropPosition('before');
+      } else if (ratio > 0.7) {
+        setDropPosition('after');
+      } else {
+        setDropPosition('inside');
+      }
+    },
     drop: (item: DragItem, monitor) => {
       if (monitor.didDrop()) return;
-      if (item.id !== node.id) {
+      if (item.id === node.id) return;
+      
+      if (dropPosition === 'inside') {
         onMoveAsChild(item.id, node.id);
+      } else if (dropPosition === 'before') {
+        onMoveToPosition(item.id, node.id, parentId, 'before');
+      } else if (dropPosition === 'after') {
+        onMoveToPosition(item.id, node.id, parentId, 'after');
       }
+      setDropPosition(null);
     },
     canDrop: (item: DragItem) => item.id !== node.id,
     collect: (monitor) => ({
@@ -127,6 +116,12 @@ function TreeItem({
       canDrop: monitor.canDrop(),
     }),
   });
+
+  useEffect(() => {
+    if (!isOver) {
+      setDropPosition(null);
+    }
+  }, [isOver]);
 
   drag(drop(ref));
 
@@ -139,24 +134,15 @@ function TreeItem({
     setIsEditing(false);
   };
 
+  const dropClass = isOver && canDrop && dropPosition ? `drop-${dropPosition}` : '';
+
   return (
     <div className="tree-item-container">
-      {/* Drop gap before first item */}
-      {isFirst && (
-        <DropGap
-          targetId={node.id}
-          parentId={parentId}
-          position="before"
-          depth={depth}
-          onDrop={onMoveToPosition}
-        />
-      )}
-
       <div
         ref={ref}
         className={`tree-item ${selectedId === node.id ? "selected" : ""} ${
           isDragging ? "dragging" : ""
-        } ${isOver && canDrop ? "drop-inside" : ""}`}
+        } ${dropClass}`}
         onClick={() => onSelect(node.id)}
         onMouseEnter={() => setShowMenu(true)}
         onMouseLeave={() => setShowMenu(false)}
@@ -239,18 +225,9 @@ function TreeItem({
         )}
       </div>
 
-      {/* Drop gap after this item */}
-      <DropGap
-        targetId={node.id}
-        parentId={parentId}
-        position="after"
-        depth={depth}
-        onDrop={onMoveToPosition}
-      />
-
       {hasChildren && isExpanded && (
         <div className="children">
-          {node.children.map((child, index) => (
+          {node.children.map((child) => (
             <TreeItem
               key={child.id}
               node={child}
@@ -265,7 +242,6 @@ function TreeItem({
               onMoveAsChild={onMoveAsChild}
               onMoveToPosition={onMoveToPosition}
               parentId={node.id}
-              isFirst={index === 0}
             />
           ))}
         </div>
@@ -401,7 +377,7 @@ function DocTreeInner({
             <p className="hint-text">Click + to create one</p>
           </div>
         ) : (
-          tree.map((node, index) => (
+          tree.map((node) => (
             <TreeItem
               key={node.id}
               node={node}
@@ -416,7 +392,6 @@ function DocTreeInner({
               onMoveAsChild={handleMoveAsChild}
               onMoveToPosition={handleMoveToPosition}
               parentId={null}
-              isFirst={index === 0}
             />
           ))
         )}
