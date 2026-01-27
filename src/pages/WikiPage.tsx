@@ -27,10 +27,11 @@ export default function WikiPage() {
 
   useEffect(() => {
     if (!docId) {
-      const tree = getDocTree();
-      if (tree.length > 0) {
-        navigate(`/doc/${tree[0].id}`, { replace: true });
-      }
+      getDocTree().then((tree) => {
+        if (tree.length > 0) {
+          navigate(`/doc/${tree[0].id}`, { replace: true });
+        }
+      });
     }
   }, [docId, navigate, refreshKey]);
 

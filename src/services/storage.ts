@@ -1,126 +1,116 @@
 import type { Block } from "@blocknote/core";
-import { v4 as uuidv4 } from "uuid";
 import type { DocContent, DocMeta, DocNode } from "../types";
 
-const DOC_META_PREFIX = "wiki_doc_meta_";
-const DOC_CONTENT_PREFIX = "wiki_doc_content_";
+const API_BASE = "/api";
 
-export function getAllDocMetas(): DocMeta[] {
-  const metas: DocMeta[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(DOC_META_PREFIX)) {
-      const meta = JSON.parse(localStorage.getItem(key)!) as DocMeta;
-      metas.push(meta);
-    }
-  }
-  return metas.sort((a, b) => a.order - b.order);
+// Async API functions
+export async function getAllDocMetas(): Promise<DocMeta[]> {
+  const response = await fetch(`${API_BASE}/docs`);
+  if (!response.ok) throw new Error("Failed to get documents");
+  const metas = await response.json();
+  return metas.sort((a: DocMeta, b: DocMeta) => a.order - b.order);
 }
 
-export function getDocMeta(id: string): DocMeta | null {
-  const data = localStorage.getItem(DOC_META_PREFIX + id);
-  return data ? JSON.parse(data) : null;
-}
-
-export function saveDocMeta(meta: DocMeta): void {
-  localStorage.setItem(DOC_META_PREFIX + meta.id, JSON.stringify(meta));
-}
-
-export function deleteDocMeta(id: string): void {
-  localStorage.removeItem(DOC_META_PREFIX + id);
-}
-
-export function getDocContent(id: string): DocContent | null {
-  const data = localStorage.getItem(DOC_CONTENT_PREFIX + id);
-  return data ? JSON.parse(data) : null;
-}
-
-export function saveDocContent(content: DocContent): void {
-  localStorage.setItem(DOC_CONTENT_PREFIX + content.id, JSON.stringify(content));
-}
-
-export function deleteDocContent(id: string): void {
-  localStorage.removeItem(DOC_CONTENT_PREFIX + id);
-}
-
-export function createDoc(title: string, parentId: string | null = null): DocMeta {
-  const id = uuidv4();
-  const siblings = getAllDocMetas().filter((m) => m.parentId === parentId);
-  const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((s) => s.order)) : -1;
-
-  const meta: DocMeta = {
-    id,
-    title,
-    parentId,
-    order: maxOrder + 1,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-
-  const content: DocContent = {
-    id,
-    blocks: [],
-  };
-
-  saveDocMeta(meta);
-  saveDocContent(content);
-  return meta;
-}
-
-export function updateDocTitle(id: string, title: string): void {
-  const meta = getDocMeta(id);
-  if (meta) {
-    meta.title = title;
-    meta.updatedAt = Date.now();
-    saveDocMeta(meta);
+export async function getDocMeta(id: string): Promise<DocMeta | null> {
+  try {
+    const response = await fetch(`${API_BASE}/docs/${id}/meta`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
   }
 }
 
-export function updateDocParent(id: string, newParentId: string | null): void {
-  const meta = getDocMeta(id);
-  if (!meta) return;
-
-  const siblings = getAllDocMetas().filter(
-    (m) => m.parentId === newParentId && m.id !== id
-  );
-  const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((s) => s.order)) : -1;
-
-  meta.parentId = newParentId;
-  meta.order = maxOrder + 1;
-  meta.updatedAt = Date.now();
-  saveDocMeta(meta);
+export async function saveDocMeta(meta: DocMeta): Promise<void> {
+  await fetch(`${API_BASE}/docs/${meta.id}/meta`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(meta),
+  });
 }
 
-export function moveDocToPosition(
+export async function deleteDocMeta(_id: string): Promise<void> {
+  // Handled by deleteDoc
+}
+
+export async function getDocContent(id: string): Promise<DocContent | null> {
+  try {
+    const response = await fetch(`${API_BASE}/docs/${id}/content`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function saveDocContent(content: DocContent): Promise<void> {
+  await fetch(`${API_BASE}/docs/${content.id}/content`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(content),
+  });
+}
+
+export async function deleteDocContent(_id: string): Promise<void> {
+  // Handled by deleteDoc
+}
+
+export async function createDoc(title: string, parentId: string | null = null): Promise<DocMeta> {
+  const response = await fetch(`${API_BASE}/docs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, parentId }),
+  });
+  if (!response.ok) throw new Error("Failed to create document");
+  return await response.json();
+}
+
+export async function updateDocTitle(id: string, title: string): Promise<void> {
+  await fetch(`${API_BASE}/docs/${id}/meta`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function updateDocParent(id: string, newParentId: string | null): Promise<void> {
+  const metas = await getAllDocMetas();
+  const siblings = metas.filter((m) => m.parentId === newParentId && m.id !== id);
+  const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((s) => s.order)) : -1;
+
+  await fetch(`${API_BASE}/docs/${id}/meta`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parentId: newParentId, order: maxOrder + 1 }),
+  });
+}
+
+export async function moveDocToPosition(
   id: string,
   newParentId: string | null,
   targetId: string | null,
-  position: 'before' | 'after'
-): void {
-  const meta = getDocMeta(id);
-  if (!meta) return;
-
-  const siblings = getAllDocMetas()
+  position: "before" | "after"
+): Promise<void> {
+  const metas = await getAllDocMetas();
+  const siblings = metas
     .filter((m) => m.parentId === newParentId && m.id !== id)
     .sort((a, b) => a.order - b.order);
 
   let newOrder: number;
 
   if (targetId === null) {
-    // Insert at end
     newOrder = siblings.length > 0 ? siblings[siblings.length - 1].order + 1 : 0;
   } else {
     const targetIndex = siblings.findIndex((s) => s.id === targetId);
     if (targetIndex === -1) {
       newOrder = siblings.length > 0 ? siblings[siblings.length - 1].order + 1 : 0;
-    } else if (position === 'before') {
+    } else if (position === "before") {
       if (targetIndex === 0) {
         newOrder = siblings[0].order - 1;
       } else {
         newOrder = (siblings[targetIndex - 1].order + siblings[targetIndex].order) / 2;
       }
     } else {
-      // position === 'after'
       if (targetIndex === siblings.length - 1) {
         newOrder = siblings[targetIndex].order + 1;
       } else {
@@ -129,19 +119,15 @@ export function moveDocToPosition(
     }
   }
 
-  meta.parentId = newParentId;
-  meta.order = newOrder;
-  meta.updatedAt = Date.now();
-  saveDocMeta(meta);
+  await fetch(`${API_BASE}/docs/${id}/meta`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parentId: newParentId, order: newOrder }),
+  });
 }
 
-export function deleteDoc(id: string): void {
-  const allMetas = getAllDocMetas();
-  const children = allMetas.filter((m) => m.parentId === id);
-  children.forEach((child) => deleteDoc(child.id));
-
-  deleteDocMeta(id);
-  deleteDocContent(id);
+export async function deleteDoc(id: string): Promise<void> {
+  await fetch(`${API_BASE}/docs/${id}`, { method: "DELETE" });
 }
 
 export function buildDocTree(metas: DocMeta[]): DocNode[] {
@@ -173,35 +159,31 @@ export function buildDocTree(metas: DocMeta[]): DocNode[] {
   return roots;
 }
 
-export function updateDocContent(id: string, blocks: Block[]): void {
-  const content: DocContent = { id, blocks };
-  saveDocContent(content);
-
-  const meta = getDocMeta(id);
-  if (meta) {
-    meta.updatedAt = Date.now();
-    saveDocMeta(meta);
-  }
+export async function updateDocContent(id: string, blocks: Block[]): Promise<void> {
+  await fetch(`${API_BASE}/docs/${id}/content`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blocks }),
+  });
 }
 
-export function getDocTree(): DocNode[] {
-  return buildDocTree(getAllDocMetas());
+export async function getDocTree(): Promise<DocNode[]> {
+  const metas = await getAllDocMetas();
+  return buildDocTree(metas);
 }
 
-export function exportDocToJson(id: string): string {
-  const meta = getDocMeta(id);
-  const content = getDocContent(id);
+export async function exportDocToJson(id: string): Promise<string> {
+  const meta = await getDocMeta(id);
+  const content = await getDocContent(id);
   return JSON.stringify({ meta, content }, null, 2);
 }
 
-export function saveDocTreeOrder(order: { id: string; parentId: string | null; order: number }[]): void {
-  order.forEach(({ id, parentId, order: orderNum }) => {
-    const meta = getDocMeta(id);
-    if (meta) {
-      meta.parentId = parentId;
-      meta.order = orderNum;
-      meta.updatedAt = Date.now();
-      saveDocMeta(meta);
-    }
+export async function saveDocTreeOrder(
+  order: { id: string; parentId: string | null; order: number }[]
+): Promise<void> {
+  await fetch(`${API_BASE}/docs/tree/order`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order }),
   });
 }

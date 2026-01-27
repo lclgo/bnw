@@ -12,9 +12,21 @@ export default defineConfig({
   server: {
     port: 37801,
     host: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:37802",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port: 37801,
     host: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:37802",
+        changeOrigin: true,
+      },
+    },
   },
 });

@@ -4,7 +4,7 @@ import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blockn
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import "./DocEditor.css";
@@ -23,60 +23,75 @@ const schema = BlockNoteSchema.create({
 });
 
 export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
-  // Synchronously load document data on mount
-  const initialData = useMemo(() => {
-    if (!docId) {
-      return { meta: null, content: null, notFound: false };
-    }
-    const meta = getDocMeta(docId);
-    const content = getDocContent(docId);
-    return { meta, content, notFound: !meta };
-  }, [docId]);
-
   const [mode, setMode] = useState<"edit" | "preview">("preview");
-  const [meta, setMeta] = useState<DocMeta | null>(initialData.meta);
-  const [blocks, setBlocks] = useState<Block[]>(initialData.content?.blocks || []);
+  const [meta, setMeta] = useState<DocMeta | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [tocVisible, setTocVisible] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [titleValue, setTitleValue] = useState(initialData.meta?.title || "");
-  const [notFound] = useState(initialData.notFound);
+  const [titleValue, setTitleValue] = useState("");
+  const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(true);
   const editorInitialized = useRef(false);
 
   const editor = useCreateBlockNote({
     schema,
   });
 
-  // Initialize editor content after editor is ready
+  // Load document data asynchronously
   useEffect(() => {
-    if (!editor || !meta || editorInitialized.current) return;
-    
-    const timer = setTimeout(() => {
-      try {
-        const content = initialData.content;
-        if (content?.blocks && content.blocks.length > 0) {
-          editor.replaceBlocks(editor.document, content.blocks);
+    if (!docId) {
+      setLoading(false);
+      setMeta(null);
+      return;
+    }
+
+    setLoading(true);
+    editorInitialized.current = false;
+
+    Promise.all([getDocMeta(docId), getDocContent(docId)])
+      .then(([metaData, contentData]) => {
+        if (!metaData) {
+          setNotFound(true);
+          setMeta(null);
         } else {
-          editor.replaceBlocks(editor.document, []);
+          setNotFound(false);
+          setMeta(metaData);
+          setTitleValue(metaData.title);
+          setBlocks(contentData?.blocks || []);
+          
+          // Initialize editor content
+          setTimeout(() => {
+            try {
+              if (contentData?.blocks && contentData.blocks.length > 0) {
+                editor.replaceBlocks(editor.document, contentData.blocks);
+              } else {
+                editor.replaceBlocks(editor.document, []);
+              }
+              editorInitialized.current = true;
+            } catch (e) {
+              console.error("Error initializing editor:", e);
+            }
+          }, 50);
         }
-        editorInitialized.current = true;
-      } catch (e) {
-        console.error("Error initializing editor:", e);
-      }
-    }, 50);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading document:", err);
+        setNotFound(true);
+        setLoading(false);
+      });
+  }, [docId, editor]);
 
-    return () => clearTimeout(timer);
-  }, [editor, meta, initialData.content]);
-
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const currentBlocks = editor.document;
-    updateDocContent(docId, currentBlocks);
+    await updateDocContent(docId, currentBlocks);
     setBlocks(currentBlocks);
     setMode("preview");
   }, [docId, editor]);
 
-  const handleTitleSave = () => {
+  const handleTitleSave = async () => {
     if (titleValue.trim() && meta && titleValue !== meta.title) {
-      updateDocTitle(docId, titleValue.trim());
+      await updateDocTitle(docId, titleValue.trim());
       setMeta({ ...meta, title: titleValue.trim() });
       onTitleChange();
     }
@@ -87,13 +102,21 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
     setBlocks(editor.document);
   }, [editor]);
 
-
-
   if (!docId) {
     return (
       <div className="doc-editor-wrapper">
         <div className="doc-editor empty">
           <p>Select a document to view or edit</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="doc-editor-wrapper">
+        <div className="doc-editor empty">
+          <p>Loading...</p>
         </div>
       </div>
     );

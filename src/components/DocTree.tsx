@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
@@ -281,8 +281,22 @@ function DocTreeInner({
   onTreeChange,
 }: DocTreeProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [tree, setTree] = useState<DocNode[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const tree = useMemo(() => getDocTree(), [refreshKey]);
+  // Load tree asynchronously
+  useEffect(() => {
+    setLoading(true);
+    getDocTree()
+      .then((data) => {
+        setTree(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading doc tree:", err);
+        setLoading(false);
+      });
+  }, [refreshKey]);
 
   const findNodeById = useCallback((nodes: DocNode[], id: string): DocNode | null => {
     for (const node of nodes) {
@@ -317,15 +331,15 @@ function DocTreeInner({
     });
   };
 
-  const handleMoveAsChild = (draggedId: string, targetId: string) => {
+  const handleMoveAsChild = async (draggedId: string, targetId: string) => {
     if (isDescendant(tree, draggedId, targetId)) return;
     
-    updateDocParent(draggedId, targetId);
+    await updateDocParent(draggedId, targetId);
     setExpandedIds((prev) => new Set(prev).add(targetId));
     onTreeChange();
   };
 
-  const handleMoveToPosition = (
+  const handleMoveToPosition = async (
     draggedId: string,
     targetId: string,
     parentId: string | null,
@@ -333,36 +347,36 @@ function DocTreeInner({
   ) => {
     if (parentId && isDescendant(tree, draggedId, parentId)) return;
     
-    moveDocToPosition(draggedId, parentId, targetId, position);
+    await moveDocToPosition(draggedId, parentId, targetId, position);
     if (parentId) {
       setExpandedIds((prev) => new Set(prev).add(parentId));
     }
     onTreeChange();
   };
 
-  const handleAddRoot = () => {
-    const meta = createDoc("New Document");
+  const handleAddRoot = async () => {
+    const meta = await createDoc("New Document");
     onTreeChange();
     onSelect(meta.id);
   };
 
-  const handleAddChild = (parentId: string) => {
-    const meta = createDoc("New Document", parentId);
+  const handleAddChild = async (parentId: string) => {
+    const meta = await createDoc("New Document", parentId);
     setExpandedIds((prev) => new Set(prev).add(parentId));
     onTreeChange();
     onSelect(meta.id);
   };
 
-  const handleDelete = (id: string) => {
-    deleteDoc(id);
+  const handleDelete = async (id: string) => {
+    await deleteDoc(id);
     onTreeChange();
     if (selectedId === id) {
       onSelect(tree.length > 0 && tree[0].id !== id ? tree[0].id : "");
     }
   };
 
-  const handleRename = (id: string, title: string) => {
-    updateDocTitle(id, title);
+  const handleRename = async (id: string, title: string) => {
+    await updateDocTitle(id, title);
     onTreeChange();
   };
 
@@ -376,7 +390,11 @@ function DocTreeInner({
       </div>
 
       <div className="tree-content">
-        {tree.length === 0 ? (
+        {loading ? (
+          <div className="empty-hint">
+            <p>Loading...</p>
+          </div>
+        ) : tree.length === 0 ? (
           <div className="empty-hint">
             <FileText className="empty-icon" />
             <p>No documents yet</p>
