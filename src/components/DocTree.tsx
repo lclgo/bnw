@@ -268,8 +268,7 @@ function DocTreeInner({
         setTree(data);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error loading doc tree:", err);
+      .catch(() => {
         setLoading(false);
       });
   }, [refreshKey]);

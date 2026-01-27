@@ -21,18 +21,6 @@ export async function getDocMeta(id: string): Promise<DocMeta | null> {
   }
 }
 
-export async function saveDocMeta(meta: DocMeta): Promise<void> {
-  await fetch(`${API_BASE}/docs/${meta.id}/meta`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(meta),
-  });
-}
-
-export async function deleteDocMeta(_id: string): Promise<void> {
-  // Handled by deleteDoc
-}
-
 export async function getDocContent(id: string): Promise<DocContent | null> {
   try {
     const response = await fetch(`${API_BASE}/docs/${id}/content`);
@@ -41,18 +29,6 @@ export async function getDocContent(id: string): Promise<DocContent | null> {
   } catch {
     return null;
   }
-}
-
-export async function saveDocContent(content: DocContent): Promise<void> {
-  await fetch(`${API_BASE}/docs/${content.id}/content`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(content),
-  });
-}
-
-export async function deleteDocContent(_id: string): Promise<void> {
-  // Handled by deleteDoc
 }
 
 export async function createDoc(title: string, parentId: string | null = null): Promise<DocMeta> {
@@ -170,20 +146,4 @@ export async function updateDocContent(id: string, blocks: Block[]): Promise<voi
 export async function getDocTree(): Promise<DocNode[]> {
   const metas = await getAllDocMetas();
   return buildDocTree(metas);
-}
-
-export async function exportDocToJson(id: string): Promise<string> {
-  const meta = await getDocMeta(id);
-  const content = await getDocContent(id);
-  return JSON.stringify({ meta, content }, null, 2);
-}
-
-export async function saveDocTreeOrder(
-  order: { id: string; parentId: string | null; order: number }[]
-): Promise<void> {
-  await fetch(`${API_BASE}/docs/tree/order`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ order }),
-  });
 }

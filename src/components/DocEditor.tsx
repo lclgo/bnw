@@ -4,7 +4,7 @@ import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blockn
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import "./DocEditor.css";
@@ -30,8 +30,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [notFound, setNotFound] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const editorInitialized = useRef(false);
+const [loading, setLoading] = useState(true);
 
   const editor = useCreateBlockNote({
     schema,
@@ -45,8 +44,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
       return;
     }
 
-    setLoading(true);
-    editorInitialized.current = false;
+setLoading(true);
 
     Promise.all([getDocMeta(docId), getDocContent(docId)])
       .then(([metaData, contentData]) => {
@@ -65,18 +63,15 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
               if (contentData?.blocks && contentData.blocks.length > 0) {
                 editor.replaceBlocks(editor.document, contentData.blocks);
               } else {
-                editor.replaceBlocks(editor.document, []);
+editor.replaceBlocks(editor.document, []);
               }
-              editorInitialized.current = true;
-            } catch (e) {
-              console.error("Error initializing editor:", e);
+            } catch {
             }
           }, 50);
         }
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error loading document:", err);
+      .catch(() => {
         setNotFound(true);
         setLoading(false);
       });

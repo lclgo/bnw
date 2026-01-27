@@ -1,4 +1,4 @@
-import "@blocknote/mantine/style.css"; // 引入默认样式
+import "@blocknote/mantine/style.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import WikiPage from "./pages/WikiPage";
 
