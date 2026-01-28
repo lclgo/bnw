@@ -11,11 +11,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 37801,
-    host: true,
+    port: 30030,
+    host: "127.0.0.1",  // Only listen on localhost for security
   },
   preview: {
-    port: 37801,
-    host: true,
+    port: 30030,
+    host: "127.0.0.1",  // Only listen on localhost for security
   },
 });
