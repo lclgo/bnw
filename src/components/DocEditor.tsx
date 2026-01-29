@@ -4,7 +4,7 @@ import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blockn
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import "./DocEditor.css";
@@ -30,7 +30,8 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [notFound, setNotFound] = useState(false);
-const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const editor = useCreateBlockNote({
     schema,
@@ -93,6 +94,49 @@ editor.replaceBlocks(editor.document, []);
     setBlocks(currentBlocks);
     setMode("preview");
   }, [docId, editor]);
+
+  // Keyboard shortcuts: 'e' to enter edit mode, 'Ctrl+Enter' to publish
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        // Allow Ctrl+Enter in editor
+        if (!(e.ctrlKey && e.key === 'Enter')) return;
+      }
+
+      if (mode === 'preview' && e.key === 'e') {
+        e.preventDefault();
+        setMode('edit');
+      } else if (mode === 'edit' && e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mode, handleSave]);
+
+  // Auto save in edit mode (every 1 minute)
+  const autoSave = useCallback(async () => {
+    if (mode !== "edit") return;
+    const currentBlocks = editor.document;
+    await updateDocContent(docId, currentBlocks);
+    setBlocks(currentBlocks);
+  }, [docId, editor, mode]);
+
+  useEffect(() => {
+    if (mode === "edit") {
+      autoSaveTimerRef.current = setInterval(autoSave, 60000);
+    }
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [mode, autoSave]);
 
   const handleTitleSave = async () => {
     if (titleValue.trim() && meta && titleValue !== meta.title) {

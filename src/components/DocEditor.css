@@ -131,3 +131,29 @@
   padding: 24px;
   min-height: 500px;
 }
+
+.editor-content .bn-editor [data-content-type="heading"]:not([data-level]) {
+  --level: 2.125rem; /* H1: 34px */
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.editor-content .bn-editor [data-content-type="heading"][data-level="2"] {
+  --level: 1.625rem; /* H2: 26px */
+}
+
+.editor-content .bn-editor [data-content-type="heading"][data-level="3"] {
+  --level: 1.375rem; /* H3: 22px */
+  color: #2563eb; /* standard blue */
+}
+
+.editor-content .bn-editor [data-content-type="heading"][data-level="4"] {
+  --level: 1.125rem; /* H4: 18px */
+}
+
+.editor-content .bn-editor [data-content-type="heading"][data-level="5"] {
+  --level: 1rem; /* H5: 16px */
+}
+
+.editor-content .bn-editor [data-content-type="heading"][data-level="6"] {
+  --level: 0.875rem; /* H6: 14px */
+}
