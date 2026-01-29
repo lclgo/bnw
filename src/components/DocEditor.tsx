@@ -5,6 +5,7 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createHighlighter } from "shiki";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import "./DocEditor.css";
@@ -18,7 +19,16 @@ interface DocEditorProps {
 const schema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
-    codeBlock: createCodeBlockSpec(codeBlockOptions),
+    codeBlock: createCodeBlockSpec({
+      ...codeBlockOptions,
+      createHighlighter: async () => {
+        const highlighter = await createHighlighter({
+          themes: ["github-light"],
+          langs: Object.keys(codeBlockOptions.supportedLanguages) as any[],
+        });
+        return highlighter as any;
+      },
+    }),
   },
 });
 

@@ -157,3 +157,15 @@
 .editor-content .bn-editor [data-content-type="heading"][data-level="6"] {
   --level: 0.875rem; /* H6: 14px */
 }
+
+.bn-editor .bn-block-content[data-content-type="codeBlock"] {
+  background: #f6f8fa !important;
+}
+
+.bn-editor .bn-block-content[data-content-type="codeBlock"] pre {
+  padding: 6px !important;
+}
+
+.bn-editor .bn-block-content[data-content-type="codeBlock"] select {
+  color: #131414 !important;
+}
