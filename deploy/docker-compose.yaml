@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  bnw:
+    image: einsler/bnw:0.1.0
+    container_name: bnw
+    ports:
+      - "37801:37801"
+    environment:
+      - PORT=37801
+      - IPADDR=8.8.8.8
+      - AUTH_USER=admin
+      - AUTH_PASS=hahe1234
+      - TZ=Asia/Shanghai
+    volumes:
+      - /data/wiki-data:/app/wiki-data
+    restart: always # unless-stopped
