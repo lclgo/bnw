@@ -160,12 +160,15 @@
 
 .bn-editor .bn-block-content[data-content-type="codeBlock"] {
   background: #f6f8fa !important;
+  color: #24292e !important;
 }
 
 .bn-editor .bn-block-content[data-content-type="codeBlock"] pre {
   padding: 6px !important;
 }
 
-.bn-editor .bn-block-content[data-content-type="codeBlock"] select {
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select {
   color: #131414 !important;
+  top: -2px !important;
+  left: 2px !important;
 }

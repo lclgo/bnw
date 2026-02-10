@@ -3,7 +3,18 @@ import type { Block } from "@blocknote/core";
 import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-import { useCreateBlockNote } from "@blocknote/react";
+import {
+  BasicTextStyleButton,
+  BlockTypeSelect,
+  ColorStyleButton,
+  CreateLinkButton,
+  FormattingToolbar,
+  FormattingToolbarController,
+  NestBlockButton,
+  TextAlignButton,
+  UnnestBlockButton,
+  useCreateBlockNote,
+} from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createHighlighter } from "shiki";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
@@ -248,7 +259,28 @@ editor.replaceBlocks(editor.document, []);
             theme="light"
             editable={mode === "edit"}
             onChange={handleBlocksChange}
-          />
+            formattingToolbar={false}
+          >
+            <FormattingToolbarController
+              formattingToolbar={() => (
+                <FormattingToolbar>
+                  <BlockTypeSelect key="blockTypeSelect" />
+                  <BasicTextStyleButton basicTextStyle="bold" key="boldStyleButton" />
+                  <BasicTextStyleButton basicTextStyle="italic" key="italicStyleButton" />
+                  <BasicTextStyleButton basicTextStyle="underline" key="underlineStyleButton" />
+                  <BasicTextStyleButton basicTextStyle="strike" key="strikeStyleButton" />
+                  <BasicTextStyleButton basicTextStyle="code" key="codeStyleButton" />
+                  <TextAlignButton textAlignment="left" key="textAlignLeftButton" />
+                  <TextAlignButton textAlignment="center" key="textAlignCenterButton" />
+                  <TextAlignButton textAlignment="right" key="textAlignRightButton" />
+                  <ColorStyleButton key="colorStyleButton" />
+                  <NestBlockButton key="nestBlockButton" />
+                  <UnnestBlockButton key="unnestBlockButton" />
+                  <CreateLinkButton key="createLinkButton" />
+                </FormattingToolbar>
+              )}
+            />
+          </BlockNoteView>
         </div>
       </div>
 
