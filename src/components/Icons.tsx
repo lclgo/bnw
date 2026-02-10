@@ -99,3 +99,21 @@ export function List(props: IconProps) {
     </svg>
   );
 }
+
+export function Search(props: IconProps) {
+  return (
+    <svg {...defaultProps} {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+export function X(props: IconProps) {
+  return (
+    <svg {...defaultProps} {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}

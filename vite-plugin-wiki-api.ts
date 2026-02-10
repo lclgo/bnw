@@ -117,6 +117,44 @@ async function parseMultipartFormData(
   });
 }
 
+function extractTextFromBlocks(blocks: unknown[]): string {
+  const texts: string[] = [];
+
+  function extractFromContent(content: unknown[]): void {
+    if (!Array.isArray(content)) return;
+    for (const item of content) {
+      if (typeof item === "object" && item !== null) {
+        const obj = item as Record<string, unknown>;
+        if (typeof obj.text === "string") {
+          texts.push(obj.text);
+        }
+        if (Array.isArray(obj.content)) {
+          extractFromContent(obj.content);
+        }
+      }
+    }
+  }
+
+  function processBlock(block: unknown): void {
+    if (typeof block !== "object" || block === null) return;
+    const b = block as Record<string, unknown>;
+    if (Array.isArray(b.content)) {
+      extractFromContent(b.content);
+    }
+    if (Array.isArray(b.children)) {
+      for (const child of b.children) {
+        processBlock(child);
+      }
+    }
+  }
+
+  for (const block of blocks) {
+    processBlock(block);
+  }
+
+  return texts.join(" ");
+}
+
 interface DocMeta {
   id: string;
   title: string;
@@ -318,6 +356,42 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
 
       res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
       res.end(fs.readFileSync(filePath));
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/docs\/search/,
+    handler: async (req, res) => {
+      const query = new URL(req.url || "", "http://localhost").searchParams.get("q")?.toLowerCase() || "";
+      if (!query) return res.end("[]");
+
+      const results: Array<{ id: string; title: string; matchText: string; matchType: "title" | "content" }> = [];
+
+      for (const meta of Object.values(readIndex().docs)) {
+        if (meta.title.toLowerCase().includes(query)) {
+          results.push({ id: meta.id, title: meta.title, matchText: meta.title, matchType: "title" });
+          continue;
+        }
+
+        const docFile = path.join(DOCS_DIR, `${meta.id}.json`);
+        if (!fs.existsSync(docFile)) continue;
+
+        try {
+          const textContent = extractTextFromBlocks(JSON.parse(fs.readFileSync(docFile, "utf-8")).blocks || []);
+          const matchIndex = textContent.toLowerCase().indexOf(query);
+          if (matchIndex === -1) continue;
+
+          const start = Math.max(0, matchIndex - 30);
+          const end = Math.min(textContent.length, matchIndex + query.length + 50);
+          let matchText = textContent.slice(start, end).replace(/\s+/g, " ").trim();
+          if (start > 0) matchText = "..." + matchText;
+          if (end < textContent.length) matchText += "...";
+
+          results.push({ id: meta.id, title: meta.title, matchText, matchType: "content" });
+        } catch {}
+      }
+
+      res.end(JSON.stringify(results.slice(0, 20)));
     },
   },
 ];

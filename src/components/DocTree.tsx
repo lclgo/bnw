@@ -2,16 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
-  createDoc,
-  deleteDoc,
-  getDocTree,
-  moveDocToPosition,
-  updateDocParent,
-  updateDocTitle,
+    createDoc,
+    deleteDoc,
+    getDocTree,
+    moveDocToPosition,
+    updateDocParent,
+    updateDocTitle,
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Trash2 } from "./Icons";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Search, Trash2 } from "./Icons";
+import SearchModal from "./SearchModal";
 
 const ItemType = "WIKI_DOC";
 
@@ -259,6 +260,7 @@ function DocTreeInner({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [tree, setTree] = useState<DocNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Load tree asynchronously
   useEffect(() => {
@@ -359,10 +361,20 @@ function DocTreeInner({
     <div className="doc-tree">
       <div className="tree-header">
         <h3>Wiki</h3>
-        <button onClick={handleAddRoot} title="Add document" className="add-btn">
-          <Plus className="icon-md" />
-        </button>
+        <div className="header-actions">
+          <button onClick={handleAddRoot} title="Add document" className="add-btn">
+            <Plus className="icon-md" />
+          </button>
+          <button onClick={() => setSearchOpen(true)} title="Search documents" className="add-btn">
+            <Search className="icon-md" />
+          </button>
+        </div>
       </div>
+      <SearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={onSelect}
+      />
 
       <div className="tree-content">
         {loading ? (

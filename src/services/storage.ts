@@ -147,3 +147,16 @@ export async function getDocTree(): Promise<DocNode[]> {
   const metas = await getAllDocMetas();
   return buildDocTree(metas);
 }
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  matchText: string;
+  matchType: "title" | "content";
+}
+
+export async function searchDocs(keyword: string): Promise<SearchResult[]> {
+  const response = await fetch(`${API_BASE}/docs/search?q=${encodeURIComponent(keyword)}`);
+  if (!response.ok) throw new Error("Failed to search documents");
+  return await response.json();
+}
