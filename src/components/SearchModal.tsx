@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { searchDocs, type SearchResult } from "../services/storage";
+import { useRef, useState } from "react";
+import { useDocSearch } from "../hooks/useDocSearch";
 import { FileText, Search, X } from "./Icons";
 import "./SearchModal.css";
 
@@ -10,35 +10,9 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ isOpen, onClose, onSelect }: SearchModalProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const { query, results, setQuery } = useDocSearch(isOpen);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setQuery("");
-      setResults([]);
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [isOpen]);
-
-  const handleInputChange = (value: string) => {
-    setQuery(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      if (!value.trim()) return setResults([]);
-      try {
-        const data = await searchDocs(value.trim());
-        setResults(data);
-        setSelectedIndex(0);
-      } catch {
-        setResults([]);
-      }
-    }, 300);
-  };
 
   const handleSelect = (id: string) => {
     onSelect(id);
@@ -72,8 +46,12 @@ export default function SearchModal({ isOpen, onClose, onSelect }: SearchModalPr
             className="search-input"
             placeholder="Search documents..."
             value={query}
-            onChange={(e) => handleInputChange(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             onKeyDown={handleKeyDown}
+            autoFocus
           />
           <button className="close-btn" onClick={onClose}>
             <X className="icon-sm" />

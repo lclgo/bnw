@@ -1,24 +1,22 @@
-import { codeBlockOptions } from "@blocknote/code-block";
 import type { Block } from "@blocknote/core";
-import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import {
-  BasicTextStyleButton,
-  BlockTypeSelect,
-  ColorStyleButton,
-  CreateLinkButton,
-  FormattingToolbar,
-  FormattingToolbarController,
-  NestBlockButton,
-  TextAlignButton,
-  UnnestBlockButton,
-  useCreateBlockNote,
+    BasicTextStyleButton,
+    BlockTypeSelect,
+    ColorStyleButton,
+    CreateLinkButton,
+    FormattingToolbar,
+    FormattingToolbarController,
+    NestBlockButton,
+    TextAlignButton,
+    UnnestBlockButton,
+    useCreateBlockNote,
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createHighlighter } from "shiki";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
+import { schema } from "../utils/editorSchema";
 import "./DocEditor.css";
 import TableOfContents from "./TableOfContents";
 
@@ -26,22 +24,6 @@ interface DocEditorProps {
   docId: string;
   onTitleChange: () => void;
 }
-
-const schema = BlockNoteSchema.create({
-  blockSpecs: {
-    ...defaultBlockSpecs,
-    codeBlock: createCodeBlockSpec({
-      ...codeBlockOptions,
-      createHighlighter: async () => {
-        const highlighter = await createHighlighter({
-          themes: ["github-light"],
-          langs: Object.keys(codeBlockOptions.supportedLanguages) as any[],
-        });
-        return highlighter as any;
-      },
-    }),
-  },
-});
 
 export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("preview");
