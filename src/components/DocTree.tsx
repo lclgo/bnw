@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
-    createDoc,
-    deleteDoc,
-    getDocTree,
-    moveDocToPosition,
-    updateDocParent,
-    updateDocTitle,
+  createDoc,
+  deleteDoc,
+  getDocTree,
+  moveDocToPosition,
+  updateDocParent,
+  updateDocTitle,
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
@@ -45,7 +45,7 @@ interface TreeItemProps {
   parentId: string | null;
 }
 
-function TreeItem({
+const TreeItem = memo(function TreeItem({
   node,
   depth,
   selectedId,
@@ -249,7 +249,7 @@ function TreeItem({
       )}
     </div>
   );
-}
+});
 
 function DocTreeInner({
   selectedId,

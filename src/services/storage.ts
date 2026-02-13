@@ -3,6 +3,26 @@ import type { DocContent, DocMeta, DocNode } from "../types";
 
 const API_BASE = "/api";
 
+// Cache for document metadata to avoid repeated fetches during drag operations
+let docMetasCache: DocMeta[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
+function invalidateMetasCache() {
+  docMetasCache = null;
+}
+
+async function getDocMetasWithCache(): Promise<DocMeta[]> {
+  const now = Date.now();
+  if (docMetasCache && (now - cacheTimestamp) < CACHE_TTL) {
+    return docMetasCache;
+  }
+  const metas = await getAllDocMetas();
+  docMetasCache = metas;
+  cacheTimestamp = now;
+  return metas;
+}
+
 // Async API functions
 export async function getAllDocMetas(): Promise<DocMeta[]> {
   const response = await fetch(`${API_BASE}/docs`);
@@ -38,6 +58,7 @@ export async function createDoc(title: string, parentId: string | null = null): 
     body: JSON.stringify({ title, parentId }),
   });
   if (!response.ok) throw new Error("Failed to create document");
+  invalidateMetasCache();
   return await response.json();
 }
 
@@ -47,10 +68,11 @@ export async function updateDocTitle(id: string, title: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
+  invalidateMetasCache();
 }
 
 export async function updateDocParent(id: string, newParentId: string | null): Promise<void> {
-  const metas = await getAllDocMetas();
+  const metas = await getDocMetasWithCache();
   const siblings = metas.filter((m) => m.parentId === newParentId && m.id !== id);
   const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((s) => s.order)) : -1;
 
@@ -59,6 +81,7 @@ export async function updateDocParent(id: string, newParentId: string | null): P
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ parentId: newParentId, order: maxOrder + 1 }),
   });
+  invalidateMetasCache();
 }
 
 export async function moveDocToPosition(
@@ -67,7 +90,7 @@ export async function moveDocToPosition(
   targetId: string | null,
   position: "before" | "after"
 ): Promise<void> {
-  const metas = await getAllDocMetas();
+  const metas = await getDocMetasWithCache();
   const siblings = metas
     .filter((m) => m.parentId === newParentId && m.id !== id)
     .sort((a, b) => a.order - b.order);
@@ -100,10 +123,12 @@ export async function moveDocToPosition(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ parentId: newParentId, order: newOrder }),
   });
+  invalidateMetasCache();
 }
 
 export async function deleteDoc(id: string): Promise<void> {
   await fetch(`${API_BASE}/docs/${id}`, { method: "DELETE" });
+  invalidateMetasCache();
 }
 
 export function buildDocTree(metas: DocMeta[]): DocNode[] {
