@@ -12,10 +12,10 @@ export default defineConfig({
   },
   server: {
     port: 30030,
-    host: "127.0.0.1",  // Only listen on localhost for security
+    host: "127.0.0.1",
   },
   preview: {
     port: 30030,
-    host: "127.0.0.1",  // Only listen on localhost for security
+    host: "127.0.0.1",
   },
 });

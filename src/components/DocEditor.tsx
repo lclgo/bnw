@@ -1,20 +1,19 @@
 import type { Block } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
-import "@blocknote/mantine/style.css";
 import {
-    BasicTextStyleButton,
-    BlockTypeSelect,
-    ColorStyleButton,
-    CreateLinkButton,
-    FormattingToolbar,
-    FormattingToolbarController,
-    getDefaultReactSlashMenuItems,
-    NestBlockButton,
-    SuggestionMenuController,
-    TextAlignButton,
-    UnnestBlockButton,
-    useCreateBlockNote
+  BasicTextStyleButton,
+  BlockTypeSelect,
+  ColorStyleButton,
+  CreateLinkButton,
+  FormattingToolbar,
+  FormattingToolbarController,
+  getDefaultReactSlashMenuItems,
+  NestBlockButton,
+  SuggestionMenuController,
+  TextAlignButton,
+  UnnestBlockButton,
+  useCreateBlockNote
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
@@ -31,7 +30,6 @@ interface DocEditorProps {
 export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("preview");
   const [meta, setMeta] = useState<DocMeta | null>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
   const [tocVisible, setTocVisible] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
@@ -61,7 +59,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
       return;
     }
 
-setLoading(true);
+    setLoading(true);
 
     Promise.all([getDocMeta(docId), getDocContent(docId)])
       .then(([metaData, contentData]) => {
@@ -72,17 +70,16 @@ setLoading(true);
           setNotFound(false);
           setMeta(metaData);
           setTitleValue(metaData.title);
-          setBlocks(contentData?.blocks || []);
-          
           // Initialize editor content
           setTimeout(() => {
             try {
               if (contentData?.blocks && contentData.blocks.length > 0) {
                 editor.replaceBlocks(editor.document, contentData.blocks);
               } else {
-editor.replaceBlocks(editor.document, []);
+                editor.replaceBlocks(editor.document, []);
               }
-            } catch {
+            } catch (e) {
+              console.error("Failed to initialize editor content:", e);
             }
           }, 50);
         }
@@ -95,9 +92,7 @@ editor.replaceBlocks(editor.document, []);
   }, [docId, editor]);
 
   const handleSave = useCallback(async () => {
-    const currentBlocks = editor.document;
-    await updateDocContent(docId, currentBlocks as Block[]);
-    setBlocks(currentBlocks as Block[]);
+    await updateDocContent(docId, editor.document as Block[]);
     setMode("preview");
   }, [docId, editor]);
 
@@ -124,12 +119,9 @@ editor.replaceBlocks(editor.document, []);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, handleSave]);
 
-  // Auto save in edit mode (every 1 minute)
   const autoSave = useCallback(async () => {
     if (mode !== "edit") return;
-    const currentBlocks = editor.document;
-    await updateDocContent(docId, currentBlocks as Block[]);
-    setBlocks(currentBlocks as Block[]);
+    await updateDocContent(docId, editor.document as Block[]);
   }, [docId, editor, mode]);
 
   useEffect(() => {
@@ -152,10 +144,6 @@ editor.replaceBlocks(editor.document, []);
     }
     setEditingTitle(false);
   };
-
-  const handleBlocksChange = useCallback(() => {
-    setBlocks(editor.document as Block[]);
-  }, [editor]);
 
   if (!docId) {
     return (
@@ -243,7 +231,6 @@ editor.replaceBlocks(editor.document, []);
             editor={editor}
             theme="light"
             editable={mode === "edit"}
-            onChange={handleBlocksChange}
             formattingToolbar={false}
             slashMenu={false}
           >
@@ -280,7 +267,7 @@ editor.replaceBlocks(editor.document, []);
       </div>
 
       <TableOfContents
-        blocks={blocks}
+        blocks={editor.document as Block[]}
         visible={tocVisible}
         onToggle={() => setTocVisible(!tocVisible)}
       />

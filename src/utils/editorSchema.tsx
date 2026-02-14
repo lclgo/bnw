@@ -1,5 +1,5 @@
 import { codeBlockOptions } from "@blocknote/code-block";
-import { BlockNoteSchema, createCodeBlockSpec, createExtension, defaultBlockSpecs } from "@blocknote/core";
+import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { createReactBlockSpec } from "@blocknote/react";
 
@@ -20,7 +20,7 @@ const noteBlock = createReactBlockSpec(
     },
   },
   [
-    createExtension({
+    {
       key: "note-block-keyboard-shortcuts",
       keyboardShortcuts: {
         Enter: ({ editor }) => {
@@ -49,7 +49,7 @@ const noteBlock = createReactBlockSpec(
           return true;
         },
       },
-    }),
+    },
   ],
 );
 

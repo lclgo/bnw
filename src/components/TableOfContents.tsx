@@ -1,5 +1,5 @@
 import type { Block } from "@blocknote/core";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { TocItem } from "../types";
 import { ChevronLeft, ChevronRight, List } from "./Icons";
 import "./TableOfContents.css";
@@ -45,7 +45,6 @@ export default function TableOfContents({
   onToggle,
 }: TableOfContentsProps) {
   const headings = useMemo(() => extractHeadings(blocks), [blocks]);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const handleClick = (id: string) => {
     const element = document.querySelector(`[data-id="${id}"]`);
@@ -54,17 +53,8 @@ export default function TableOfContents({
     }
   };
 
-  const getIndentClass = (level: number) => {
-    const indents: Record<number, string> = {
-      1: "level-1",
-      2: "level-2",
-      3: "level-3",
-      4: "level-4",
-      5: "level-5",
-      6: "level-6",
-    };
-    return indents[level] || "level-1";
-  };
+  const getIndentClass = (level: number) =>
+    `level-${Math.min(Math.max(level, 1), 6)}`;
 
   return (
     <>
@@ -102,10 +92,8 @@ export default function TableOfContents({
               {headings.map((heading) => (
                 <button
                   key={heading.id}
-                  className={`toc-item ${getIndentClass(heading.level)} ${hoveredId === heading.id ? "hovered" : ""}`}
+                  className={`toc-item ${getIndentClass(heading.level)}`}
                   onClick={() => handleClick(heading.id)}
-                  onMouseEnter={() => setHoveredId(heading.id)}
-                  onMouseLeave={() => setHoveredId(null)}
                   title={heading.text}
                 >
                   <span className="toc-item-text">{heading.text}</span>

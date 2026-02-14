@@ -10,6 +10,7 @@ const CACHE_TTL = 5000; // 5 seconds
 
 function invalidateMetasCache() {
   docMetasCache = null;
+  cacheTimestamp = 0;
 }
 
 async function getDocMetasWithCache(): Promise<DocMeta[]> {
