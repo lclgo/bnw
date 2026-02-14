@@ -1,4 +1,5 @@
 import type { Block } from "@blocknote/core";
+import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import {
@@ -8,15 +9,17 @@ import {
     CreateLinkButton,
     FormattingToolbar,
     FormattingToolbarController,
+    getDefaultReactSlashMenuItems,
     NestBlockButton,
+    SuggestionMenuController,
     TextAlignButton,
     UnnestBlockButton,
-    useCreateBlockNote,
+    useCreateBlockNote
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
-import { schema } from "../utils/editorSchema";
+import { getNoteSlashMenuItem, schema } from "../utils/editorSchema";
 import "./DocEditor.css";
 import TableOfContents from "./TableOfContents";
 
@@ -93,8 +96,8 @@ editor.replaceBlocks(editor.document, []);
 
   const handleSave = useCallback(async () => {
     const currentBlocks = editor.document;
-    await updateDocContent(docId, currentBlocks);
-    setBlocks(currentBlocks);
+    await updateDocContent(docId, currentBlocks as Block[]);
+    setBlocks(currentBlocks as Block[]);
     setMode("preview");
   }, [docId, editor]);
 
@@ -125,8 +128,8 @@ editor.replaceBlocks(editor.document, []);
   const autoSave = useCallback(async () => {
     if (mode !== "edit") return;
     const currentBlocks = editor.document;
-    await updateDocContent(docId, currentBlocks);
-    setBlocks(currentBlocks);
+    await updateDocContent(docId, currentBlocks as Block[]);
+    setBlocks(currentBlocks as Block[]);
   }, [docId, editor, mode]);
 
   useEffect(() => {
@@ -151,7 +154,7 @@ editor.replaceBlocks(editor.document, []);
   };
 
   const handleBlocksChange = useCallback(() => {
-    setBlocks(editor.document);
+    setBlocks(editor.document as Block[]);
   }, [editor]);
 
   if (!docId) {
@@ -242,6 +245,7 @@ editor.replaceBlocks(editor.document, []);
             editable={mode === "edit"}
             onChange={handleBlocksChange}
             formattingToolbar={false}
+            slashMenu={false}
           >
             <FormattingToolbarController
               formattingToolbar={() => (
@@ -261,6 +265,15 @@ editor.replaceBlocks(editor.document, []);
                   <CreateLinkButton key="createLinkButton" />
                 </FormattingToolbar>
               )}
+            />
+            <SuggestionMenuController
+              triggerCharacter="/"
+              getItems={async (query) =>
+                filterSuggestionItems(
+                  [...getDefaultReactSlashMenuItems(editor), getNoteSlashMenuItem(editor)],
+                  query,
+                )
+              }
             />
           </BlockNoteView>
         </div>

@@ -172,3 +172,30 @@
   top: -2px !important;
   left: 2px !important;
 }
+
+/* Note block */
+.bn-editor .bn-block-content[data-content-type="note"] {
+  background: #fff1f0;
+  border-left: 4px solid #ff7875;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.note-block-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.note-block-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  user-select: none;
+}
+
+.note-block-content {
+  flex: 1;
+  min-width: 0;
+}
