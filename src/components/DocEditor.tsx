@@ -31,6 +31,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("preview");
   const [meta, setMeta] = useState<DocMeta | null>(null);
   const [tocVisible, setTocVisible] = useState(true);
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [notFound, setNotFound] = useState(false);
@@ -78,6 +79,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
               } else {
                 editor.replaceBlocks(editor.document, []);
               }
+              setBlocks([...editor.document] as Block[]);
             } catch (e) {
               console.error("Failed to initialize editor content:", e);
             }
@@ -233,6 +235,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
             editable={mode === "edit"}
             formattingToolbar={false}
             slashMenu={false}
+            onChange={() => setBlocks([...editor.document] as Block[])}
           >
             <FormattingToolbarController
               formattingToolbar={() => (
@@ -267,7 +270,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
       </div>
 
       <TableOfContents
-        blocks={editor.document as Block[]}
+        blocks={blocks}
         visible={tocVisible}
         onToggle={() => setTocVisible(!tocVisible)}
       />
