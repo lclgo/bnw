@@ -16,7 +16,7 @@ import {
   useCreateBlockNote
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
+import { acquireEditLock, checkEditLock, getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import { getNoteSlashMenuItem, schema } from "../utils/editorSchema";
 import "./DocEditor.css";
@@ -36,6 +36,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
   const [titleValue, setTitleValue] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const lockSeqRef = useRef<number>(0);
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const editor = useCreateBlockNote({
@@ -93,10 +94,43 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
       });
   }, [docId, editor]);
 
-  const handleSave = useCallback(async () => {
-    await updateDocContent(docId, editor.document as Block[]);
-    setMode("preview");
+  // Save with lock check: verify lockSeq before saving
+  const saveWithLockCheck = useCallback(async (): Promise<boolean> => {
+    try {
+      const currentSeq = await checkEditLock(docId);
+      if (currentSeq !== lockSeqRef.current) {
+        // Lock has been taken by another user
+        setMode("preview");
+        // Reload latest content
+        const contentData = await getDocContent(docId);
+        if (contentData?.blocks && contentData.blocks.length > 0) {
+          editor.replaceBlocks(editor.document, contentData.blocks);
+        }
+        setBlocks([...editor.document] as Block[]);
+        alert("Another user has started editing this document. Your changes were not saved.");
+        return false;
+      }
+      await updateDocContent(docId, editor.document as Block[]);
+      return true;
+    } catch (e) {
+      console.error("Save failed:", e);
+      return false;
+    }
   }, [docId, editor]);
+
+  const handleSave = useCallback(async () => {
+    const saved = await saveWithLockCheck();
+    if (saved) {
+      setMode("preview");
+    }
+  }, [saveWithLockCheck]);
+
+  // Enter edit mode: acquire lock
+  const enterEditMode = useCallback(async () => {
+    const seq = await acquireEditLock(docId);
+    lockSeqRef.current = seq;
+    setMode("edit");
+  }, [docId]);
 
   // Keyboard shortcuts: 'e' to enter edit mode, 'Ctrl+Enter' to publish
   useEffect(() => {
@@ -110,7 +144,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
 
       if (mode === 'preview' && e.key === 'e') {
         e.preventDefault();
-        setMode('edit');
+        enterEditMode();
       } else if (mode === 'edit' && e.ctrlKey && e.key === 'Enter') {
         e.preventDefault();
         handleSave();
@@ -119,12 +153,12 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, handleSave]);
+  }, [mode, handleSave, enterEditMode]);
 
   const autoSave = useCallback(async () => {
     if (mode !== "edit") return;
-    await updateDocContent(docId, editor.document as Block[]);
-  }, [docId, editor, mode]);
+    await saveWithLockCheck();
+  }, [mode, saveWithLockCheck]);
 
   useEffect(() => {
     if (mode === "edit") {
@@ -212,7 +246,7 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
 
           <div className="header-actions">
             {mode === "preview" ? (
-              <button className="btn btn-primary" onClick={() => setMode("edit")}>
+              <button className="btn btn-primary" onClick={enterEditMode}>
                 Edit
               </button>
             ) : (

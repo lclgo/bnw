@@ -164,6 +164,9 @@ interface DocMeta {
   updatedAt: number;
 }
 
+// In-memory edit lock: docId -> current lock sequence number
+const editLockSeqs = new Map<string, number>();
+
 type ApiHandler = (
   req: Connect.IncomingMessage,
   res: { setHeader: Function; end: Function; statusCode?: number },
@@ -356,6 +359,28 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
 
       res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
       res.end(fs.readFileSync(filePath));
+    },
+  },
+  {
+    // Acquire edit lock: always succeeds, returns incremented lockSeq
+    method: "POST",
+    pattern: /^\/api\/docs\/([^/]+)\/lock$/,
+    handler: async (_req, res, params) => {
+      const docId = params!.id;
+      const prev = editLockSeqs.get(docId) || 0;
+      const newSeq = prev + 1;
+      editLockSeqs.set(docId, newSeq);
+      res.end(JSON.stringify({ lockSeq: newSeq }));
+    },
+  },
+  {
+    // Check edit lock: returns current lockSeq for the document
+    method: "GET",
+    pattern: /^\/api\/docs\/([^/]+)\/lock$/,
+    handler: async (_req, res, params) => {
+      const docId = params!.id;
+      const seq = editLockSeqs.get(docId) || 0;
+      res.end(JSON.stringify({ lockSeq: seq }));
     },
   },
   {

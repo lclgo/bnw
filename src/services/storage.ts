@@ -186,3 +186,19 @@ export async function searchDocs(keyword: string): Promise<SearchResult[]> {
   if (!response.ok) throw new Error("Failed to search documents");
   return await response.json();
 }
+
+// --- Edit Lock APIs ---
+
+export async function acquireEditLock(docId: string): Promise<number> {
+  const response = await fetch(`${API_BASE}/docs/${docId}/lock`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  return data.lockSeq;
+}
+
+export async function checkEditLock(docId: string): Promise<number> {
+  const response = await fetch(`${API_BASE}/docs/${docId}/lock`);
+  const data = await response.json();
+  return data.lockSeq;
+}
