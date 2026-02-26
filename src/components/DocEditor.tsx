@@ -118,7 +118,11 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
     }
   }, [docId, editor]);
 
-  const handleSave = useCallback(async () => {
+  const handleManualSave = useCallback(async () => {
+    await saveWithLockCheck();
+  }, [saveWithLockCheck]);
+
+  const handlePublish = useCallback(async () => {
     const saved = await saveWithLockCheck();
     if (saved) {
       setMode("preview");
@@ -145,15 +149,18 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
       if (mode === 'preview' && e.key === 'e') {
         e.preventDefault();
         enterEditMode();
+      } else if (mode === 'edit' && e.ctrlKey && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        handlePublish();
       } else if (mode === 'edit' && e.ctrlKey && e.key === 'Enter') {
         e.preventDefault();
-        handleSave();
+        handleManualSave();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, handleSave, enterEditMode]);
+  }, [mode, handleManualSave, handlePublish, enterEditMode]);
 
   const autoSave = useCallback(async () => {
     if (mode !== "edit") return;
@@ -251,10 +258,13 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
               </button>
             ) : (
               <>
+                <button className="btn btn-save" onClick={handleManualSave}>
+                  Save
+                </button>
                 <button className="btn btn-secondary" onClick={() => setMode("preview")}>
                   Cancel
                 </button>
-                <button className="btn btn-primary" onClick={handleSave}>
+                <button className="btn btn-primary" onClick={handlePublish}>
                   Publish
                 </button>
               </>

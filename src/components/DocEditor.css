@@ -105,6 +105,15 @@
   background: #e5e7eb;
 }
 
+.btn-save {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.btn-save:hover {
+  background: #bfdbfe;
+}
+
 .btn-icon {
   background: transparent;
   padding: 8px;
