@@ -172,6 +172,11 @@
   color: #24292e !important;
 }
 
+
+.bn-editor .bn-block-content[data-content-type="codeBlock"] pre span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
 .bn-editor .bn-block-content[data-content-type="codeBlock"] pre {
   padding: 6px !important;
 }
