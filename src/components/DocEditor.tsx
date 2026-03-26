@@ -53,6 +53,22 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
     },
   });
 
+  // Hide code block language selects during copy to prevent them from being included in pasted content
+  useEffect(() => {
+    const handleCopy = () => {
+      const selects = document.querySelectorAll<HTMLElement>(
+        '.bn-editor .bn-block-content[data-content-type="codeBlock"] > div[contenteditable="false"]'
+      );
+      selects.forEach((el) => (el.style.display = "none"));
+      // Restore after the copy event completes
+      setTimeout(() => {
+        selects.forEach((el) => (el.style.display = ""));
+      }, 0);
+    };
+    document.addEventListener("copy", handleCopy, true);
+    return () => document.removeEventListener("copy", handleCopy, true);
+  }, []);
+
   // Load document data asynchronously
   useEffect(() => {
     if (!docId) {

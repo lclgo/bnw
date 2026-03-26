@@ -187,6 +187,14 @@
   left: 2px !important;
 }
 
+/* Prevent language select from being included in copy/paste */
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > div[contenteditable="false"] {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 /* Note block */
 .bn-editor .bn-block-content[data-content-type="note"] {
   background: #fff1f0;
