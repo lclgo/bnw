@@ -2,16 +2,17 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
-  createDoc,
-  deleteDoc,
-  getDocTree,
-  moveDocToPosition,
-  updateDocParent,
-  updateDocTitle,
+    createDoc,
+    deleteDoc,
+    exportAllDocs,
+    getDocTree,
+    moveDocToPosition,
+    updateDocParent,
+    updateDocTitle,
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Search, Trash2 } from "./Icons";
+import { ChevronDown, ChevronRight, Download, FileText, Folder, FolderOpen, Plus, Search, Trash2 } from "./Icons";
 import SearchModal from "./SearchModal";
 
 const ItemType = "WIKI_DOC";
@@ -261,6 +262,7 @@ function DocTreeInner({
   const [tree, setTree] = useState<DocNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Load tree asynchronously
   useEffect(() => {
@@ -337,6 +339,19 @@ function DocTreeInner({
     onSelect(meta.id);
   };
 
+  const handleExportAll = async () => {
+    setExporting(true);
+    try {
+      const result = await exportAllDocs();
+      alert(`Exported ${result.count} documents to: ${result.exportPath}`);
+    } catch (e) {
+      console.error("Export failed:", e);
+      alert("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleAddChild = async (parentId: string) => {
     const meta = await createDoc("New Document", parentId);
     setExpandedIds((prev) => new Set(prev).add(parentId));
@@ -362,6 +377,9 @@ function DocTreeInner({
       <div className="tree-header">
         <h3>Wiki</h3>
         <div className="header-actions">
+          <button onClick={handleExportAll} title="Export all documents" className="add-btn" disabled={exporting}>
+            <Download className="icon-md" />
+          </button>
           <button onClick={handleAddRoot} title="Add document" className="add-btn">
             <Plus className="icon-md" />
           </button>

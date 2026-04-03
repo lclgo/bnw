@@ -2,24 +2,25 @@ import type { Block } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
-  BasicTextStyleButton,
-  BlockTypeSelect,
-  ColorStyleButton,
-  CreateLinkButton,
-  FormattingToolbar,
-  FormattingToolbarController,
-  getDefaultReactSlashMenuItems,
-  NestBlockButton,
-  SuggestionMenuController,
-  TextAlignButton,
-  UnnestBlockButton,
-  useCreateBlockNote
+    BasicTextStyleButton,
+    BlockTypeSelect,
+    ColorStyleButton,
+    CreateLinkButton,
+    FormattingToolbar,
+    FormattingToolbarController,
+    getDefaultReactSlashMenuItems,
+    NestBlockButton,
+    SuggestionMenuController,
+    TextAlignButton,
+    UnnestBlockButton,
+    useCreateBlockNote
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { acquireEditLock, checkEditLock, getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
+import { acquireEditLock, checkEditLock, exportSingleDoc, getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
 import type { DocMeta } from "../types";
 import { getNoteSlashMenuItem, schema } from "../utils/editorSchema";
 import "./DocEditor.css";
+import { Download } from "./Icons";
 import TableOfContents from "./TableOfContents";
 
 interface DocEditorProps {
@@ -195,6 +196,16 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
     };
   }, [mode, autoSave]);
 
+  const handleExport = useCallback(async () => {
+    try {
+      const result = await exportSingleDoc(docId);
+      alert(`Exported to: ${result.exportPath}/${result.filename}`);
+    } catch (e) {
+      console.error("Export failed:", e);
+      alert("Export failed. Please try again.");
+    }
+  }, [docId]);
+
   const handleTitleSave = async () => {
     if (titleValue.trim() && meta && titleValue !== meta.title) {
       await updateDocTitle(docId, titleValue.trim());
@@ -269,9 +280,18 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
 
           <div className="header-actions">
             {mode === "preview" ? (
-              <button className="btn btn-primary" onClick={enterEditMode}>
-                Edit
-              </button>
+              <>
+                <button
+                  className="btn btn-icon"
+                  onClick={handleExport}
+                  title="Export as Markdown"
+                >
+                  <Download className="icon-md" />
+                </button>
+                <button className="btn btn-primary" onClick={enterEditMode}>
+                  Edit
+                </button>
+              </>
             ) : (
               <>
                 <button className="btn btn-save" onClick={handleManualSave}>

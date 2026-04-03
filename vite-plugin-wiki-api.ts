@@ -6,6 +6,16 @@ const DATA_DIR = path.resolve(__dirname, "wiki-data");
 const DOCS_DIR = path.join(DATA_DIR, "docs");
 const IMAGES_DIR = path.join(DATA_DIR, "images");
 const INDEX_FILE = path.join(DATA_DIR, "index.json");
+const EXPORT_DIR = path.resolve(__dirname, "export");
+
+interface DocMeta {
+  id: string;
+  title: string;
+  parentId: string | null;
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+}
 
 function ensureDirectories() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -117,34 +127,118 @@ async function parseMultipartFormData(
   });
 }
 
-function extractTextFromBlocks(blocks: unknown[]): string {
-  const texts: string[] = [];
-
-  function extractFromContent(content: unknown[]): void {
-    if (!Array.isArray(content)) return;
-    for (const item of content) {
-      if (typeof item === "object" && item !== null) {
-        const obj = item as Record<string, unknown>;
-        if (typeof obj.text === "string") {
-          texts.push(obj.text);
-        }
-        if (Array.isArray(obj.content)) {
-          extractFromContent(obj.content);
-        }
-      }
+// Convert inline content to markdown text
+function inlineContentToMarkdown(content: unknown[]): string {
+  if (!Array.isArray(content)) return "";
+  let result = "";
+  for (const item of content) {
+    if (typeof item !== "object" || item === null) continue;
+    const obj = item as Record<string, unknown>;
+    if (obj.type === "text" && typeof obj.text === "string") {
+      let text = obj.text;
+      const styles = (obj.styles || {}) as Record<string, unknown>;
+      if (styles.bold) text = `**${text}**`;
+      if (styles.italic) text = `*${text}*`;
+      if (styles.strike) text = `~~${text}~~`;
+      if (styles.code) text = `\`${text}\``;
+      result += text;
+    } else if (obj.type === "link") {
+      const linkContent = Array.isArray(obj.content) ? inlineContentToMarkdown(obj.content) : "";
+      result += `[${linkContent}](${obj.href || ""})`;
     }
   }
+  return result;
+}
 
-  function processBlock(block: unknown): void {
+// Convert BlockNote blocks to markdown string
+function blocksToMarkdown(blocks: unknown[]): string {
+  const lines: string[] = [];
+
+  function processBlock(block: unknown, indent: string = ""): void {
     if (typeof block !== "object" || block === null) return;
     const b = block as Record<string, unknown>;
-    if (Array.isArray(b.content)) {
-      extractFromContent(b.content);
-    }
-    if (Array.isArray(b.children)) {
-      for (const child of b.children) {
-        processBlock(child);
+    const type = b.type as string;
+    const props = (b.props || {}) as Record<string, unknown>;
+    const content = Array.isArray(b.content) ? b.content : [];
+    const children = Array.isArray(b.children) ? b.children : [];
+    const text = inlineContentToMarkdown(content);
+
+    switch (type) {
+      case "heading": {
+        const level = (props.level as number) || 1;
+        lines.push(`${indent}${"#".repeat(level)} ${text}`);
+        lines.push("");
+        break;
       }
+      case "paragraph": {
+        lines.push(`${indent}${text}`);
+        lines.push("");
+        break;
+      }
+      case "bulletListItem": {
+        lines.push(`${indent}- ${text}`);
+        break;
+      }
+      case "numberedListItem": {
+        lines.push(`${indent}1. ${text}`);
+        break;
+      }
+      case "checkListItem": {
+        const checked = props.checked ? "x" : " ";
+        lines.push(`${indent}- [${checked}] ${text}`);
+        break;
+      }
+      case "codeBlock": {
+        const lang = (props.language as string) || "";
+        lines.push(`${indent}\`\`\`${lang}`);
+        lines.push(text);
+        lines.push(`${indent}\`\`\``);
+        lines.push("");
+        break;
+      }
+      case "image": {
+        const url = (props.url as string) || "";
+        const caption = (props.caption as string) || "";
+        lines.push(`${indent}![${caption}](${url})`);
+        lines.push("");
+        break;
+      }
+      case "table": {
+        const tableContent = b.content as Record<string, unknown>;
+        if (tableContent && typeof tableContent === "object" && Array.isArray((tableContent as any).rows)) {
+          const rows = (tableContent as any).rows as unknown[][];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i] as unknown[];
+            const cells = row.map((cell: unknown) => {
+              if (Array.isArray(cell)) return inlineContentToMarkdown(cell);
+              return "";
+            });
+            lines.push(`| ${cells.join(" | ")} |`);
+            if (i === 0) {
+              lines.push(`| ${cells.map(() => "---").join(" | ")} |`);
+            }
+          }
+          lines.push("");
+        }
+        break;
+      }
+      case "note": {
+        lines.push(`${indent}> 📌 ${text}`);
+        lines.push("");
+        break;
+      }
+      default: {
+        if (text) {
+          lines.push(`${indent}${text}`);
+          lines.push("");
+        }
+        break;
+      }
+    }
+
+    // Process nested children with increased indent
+    for (const child of children) {
+      processBlock(child, indent + "  ");
     }
   }
 
@@ -152,16 +246,89 @@ function extractTextFromBlocks(blocks: unknown[]): string {
     processBlock(block);
   }
 
-  return texts.join(" ");
+  // Clean up trailing empty lines
+  let result = lines.join("\n");
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+  return result + "\n";
 }
 
-interface DocMeta {
-  id: string;
-  title: string;
-  parentId: string | null;
-  order: number;
-  createdAt: number;
-  updatedAt: number;
+// Sanitize filename: replace invalid characters
+function sanitizeFilename(name: string): string {
+  return name.replace(/[<>:"\/\\|?*]/g, "_").replace(/\s+/g, " ").trim() || "Untitled";
+}
+
+// Read a document's blocks and convert to markdown with title
+function readDocAsMarkdown(docId: string, title: string): string {
+  const docFile = path.join(DOCS_DIR, `${docId}.json`);
+  try {
+    const docData = JSON.parse(fs.readFileSync(docFile, "utf-8"));
+    return `# ${title}\n\n${blocksToMarkdown(docData.blocks || [])}`;
+  } catch {
+    return `# ${title}\n`;
+  }
+}
+
+// Write a single document as markdown to the export directory
+function exportSingleDoc(docId: string, docs: Record<string, DocMeta>): string | null {
+  const meta = docs[docId];
+  if (!meta) return null;
+
+  fs.mkdirSync(EXPORT_DIR, { recursive: true });
+  const filename = `${sanitizeFilename(meta.title)}.md`;
+  fs.writeFileSync(
+    path.join(EXPORT_DIR, filename),
+    readDocAsMarkdown(docId, meta.title),
+    "utf-8",
+  );
+  return filename;
+}
+
+// Export all documents with hierarchical directory structure
+function exportAllDocs(): { exportPath: string; count: number } {
+  if (fs.existsSync(EXPORT_DIR)) {
+    fs.rmSync(EXPORT_DIR, { recursive: true });
+  }
+  fs.mkdirSync(EXPORT_DIR, { recursive: true });
+
+  const docs = readIndex().docs;
+  const allMetas = Object.values(docs).sort((a, b) => a.order - b.order);
+  const childrenOf = (pid: string | null) => allMetas.filter((m) => m.parentId === pid);
+  let count = 0;
+
+  function exportNode(meta: DocMeta, dirPath: string): void {
+    const children = childrenOf(meta.id);
+    const safeName = sanitizeFilename(meta.title);
+    const targetDir = children.length > 0 ? path.join(dirPath, safeName) : dirPath;
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(targetDir, `${safeName}.md`),
+      readDocAsMarkdown(meta.id, meta.title),
+      "utf-8",
+    );
+    count++;
+    for (const child of children) {
+      exportNode(child, targetDir);
+    }
+  }
+
+  for (const root of childrenOf(null)) {
+    exportNode(root, EXPORT_DIR);
+  }
+  return { exportPath: EXPORT_DIR, count };
+}
+
+function extractTextFromBlocks(blocks: unknown[]): string {
+  const texts: string[] = [];
+  const queue: unknown[] = [...blocks];
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (typeof item !== "object" || item === null) continue;
+    const obj = item as Record<string, unknown>;
+    if (typeof obj.text === "string") texts.push(obj.text);
+    if (Array.isArray(obj.content)) queue.push(...obj.content);
+    if (Array.isArray(obj.children)) queue.push(...obj.children);
+  }
+  return texts.join(" ");
 }
 
 // In-memory edit lock: docId -> current lock sequence number
@@ -381,6 +548,29 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
       const docId = params!.id;
       const seq = editLockSeqs.get(docId) || 0;
       res.end(JSON.stringify({ lockSeq: seq }));
+    },
+  },
+  {
+    // Export all documents as markdown
+    method: "POST",
+    pattern: /^\/api\/export\/all$/,
+    handler: async (_req, res) => {
+      const result = exportAllDocs();
+      res.end(JSON.stringify({ success: true, exportPath: result.exportPath, count: result.count }));
+    },
+  },
+  {
+    // Export a single document as markdown
+    method: "POST",
+    pattern: /^\/api\/export\/([^/]+)$/,
+    handler: async (_req, res, params) => {
+      const filename = exportSingleDoc(params!.id, readIndex().docs);
+      if (!filename) {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ error: "Document not found" }));
+        return;
+      }
+      res.end(JSON.stringify({ success: true, exportPath: EXPORT_DIR, filename }));
     },
   },
   {

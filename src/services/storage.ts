@@ -202,3 +202,17 @@ export async function checkEditLock(docId: string): Promise<number> {
   const data = await response.json();
   return data.lockSeq;
 }
+
+// --- Export APIs ---
+
+export async function exportAllDocs(): Promise<{ success: boolean; exportPath: string; count: number }> {
+  const response = await fetch(`${API_BASE}/export/all`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to export all documents");
+  return await response.json();
+}
+
+export async function exportSingleDoc(docId: string): Promise<{ success: boolean; exportPath: string; filename: string }> {
+  const response = await fetch(`${API_BASE}/export/${docId}`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to export document");
+  return await response.json();
+}
