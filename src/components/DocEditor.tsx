@@ -2,18 +2,18 @@ import type { Block } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
-    BasicTextStyleButton,
-    BlockTypeSelect,
-    ColorStyleButton,
-    CreateLinkButton,
-    FormattingToolbar,
-    FormattingToolbarController,
-    getDefaultReactSlashMenuItems,
-    NestBlockButton,
-    SuggestionMenuController,
-    TextAlignButton,
-    UnnestBlockButton,
-    useCreateBlockNote
+  BasicTextStyleButton,
+  BlockTypeSelect,
+  ColorStyleButton,
+  CreateLinkButton,
+  FormattingToolbar,
+  FormattingToolbarController,
+  getDefaultReactSlashMenuItems,
+  NestBlockButton,
+  SuggestionMenuController,
+  TextAlignButton,
+  UnnestBlockButton,
+  useCreateBlockNote
 } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { acquireEditLock, checkEditLock, exportSingleDoc, getDocContent, getDocMeta, updateDocContent, updateDocTitle } from "../services/storage";
@@ -198,11 +198,9 @@ export default function DocEditor({ docId, onTitleChange }: DocEditorProps) {
 
   const handleExport = useCallback(async () => {
     try {
-      const result = await exportSingleDoc(docId);
-      alert(`Exported to: ${result.exportPath}/${result.filename}`);
+      await exportSingleDoc(docId);
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Export failed. Please try again.");
     }
   }, [docId]);
 

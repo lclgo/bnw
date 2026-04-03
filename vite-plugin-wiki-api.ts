@@ -1,4 +1,7 @@
+import archiver from "archiver";
+import crypto from "crypto";
 import fs from "fs";
+import type { ServerResponse } from "http";
 import path from "path";
 import type { Connect, Plugin } from "vite";
 
@@ -7,6 +10,13 @@ const DOCS_DIR = path.join(DATA_DIR, "docs");
 const IMAGES_DIR = path.join(DATA_DIR, "images");
 const INDEX_FILE = path.join(DATA_DIR, "index.json");
 const EXPORT_DIR = path.resolve(__dirname, "export");
+const EXPORT_PASSWORD_HASH = "e553db54d403b7aaa74a47b9d8e162dfb48500dd714357a5743b36785c2d72b7";
+
+function verifyPassword(password: string | undefined): boolean {
+  if (!password) return false;
+  const hash = crypto.createHash("sha256").update(password).digest("hex");
+  return hash === EXPORT_PASSWORD_HASH;
+}
 
 interface DocMeta {
   id: string;
@@ -268,23 +278,8 @@ function readDocAsMarkdown(docId: string, title: string): string {
   }
 }
 
-// Write a single document as markdown to the export directory
-function exportSingleDoc(docId: string, docs: Record<string, DocMeta>): string | null {
-  const meta = docs[docId];
-  if (!meta) return null;
-
-  fs.mkdirSync(EXPORT_DIR, { recursive: true });
-  const filename = `${sanitizeFilename(meta.title)}.md`;
-  fs.writeFileSync(
-    path.join(EXPORT_DIR, filename),
-    readDocAsMarkdown(docId, meta.title),
-    "utf-8",
-  );
-  return filename;
-}
-
 // Export all documents with hierarchical directory structure
-function exportAllDocs(): { exportPath: string; count: number } {
+function exportAllDocs(): void {
   if (fs.existsSync(EXPORT_DIR)) {
     fs.rmSync(EXPORT_DIR, { recursive: true });
   }
@@ -293,7 +288,6 @@ function exportAllDocs(): { exportPath: string; count: number } {
   const docs = readIndex().docs;
   const allMetas = Object.values(docs).sort((a, b) => a.order - b.order);
   const childrenOf = (pid: string | null) => allMetas.filter((m) => m.parentId === pid);
-  let count = 0;
 
   function exportNode(meta: DocMeta, dirPath: string): void {
     const children = childrenOf(meta.id);
@@ -305,7 +299,6 @@ function exportAllDocs(): { exportPath: string; count: number } {
       readDocAsMarkdown(meta.id, meta.title),
       "utf-8",
     );
-    count++;
     for (const child of children) {
       exportNode(child, targetDir);
     }
@@ -314,7 +307,6 @@ function exportAllDocs(): { exportPath: string; count: number } {
   for (const root of childrenOf(null)) {
     exportNode(root, EXPORT_DIR);
   }
-  return { exportPath: EXPORT_DIR, count };
 }
 
 function extractTextFromBlocks(blocks: unknown[]): string {
@@ -336,7 +328,7 @@ const editLockSeqs = new Map<string, number>();
 
 type ApiHandler = (
   req: Connect.IncomingMessage,
-  res: { setHeader: Function; end: Function; statusCode?: number },
+  res: ServerResponse,
   params?: Record<string, string>
 ) => Promise<void>;
 
@@ -551,26 +543,49 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
     },
   },
   {
-    // Export all documents as markdown
+    // Export all documents as a zip download (password protected)
     method: "POST",
     pattern: /^\/api\/export\/all$/,
-    handler: async (_req, res) => {
-      const result = exportAllDocs();
-      res.end(JSON.stringify({ success: true, exportPath: result.exportPath, count: result.count }));
+    handler: async (req, res) => {
+      const { password } = await parseBody<{ password?: string }>(req);
+      if (!verifyPassword(password)) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: "Invalid password" }));
+        return;
+      }
+
+      exportAllDocs();
+
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      const zipName = `wiki-export-${new Date().toISOString().slice(0, 10)}.zip`;
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipName}"`);
+
+      archive.pipe(res);
+      archive.directory(EXPORT_DIR, false);
+      await archive.finalize();
     },
   },
   {
-    // Export a single document as markdown
+    // Export a single document as markdown download
     method: "POST",
     pattern: /^\/api\/export\/([^/]+)$/,
     handler: async (_req, res, params) => {
-      const filename = exportSingleDoc(params!.id, readIndex().docs);
-      if (!filename) {
+      const docs = readIndex().docs;
+      const meta = docs[params!.id];
+      if (!meta) {
         res.statusCode = 404;
         res.end(JSON.stringify({ error: "Document not found" }));
         return;
       }
-      res.end(JSON.stringify({ success: true, exportPath: EXPORT_DIR, filename }));
+
+      const markdown = readDocAsMarkdown(params!.id, meta.title);
+      const filename = `${sanitizeFilename(meta.title)}.md`;
+
+      res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+      res.end(markdown);
     },
   },
   {

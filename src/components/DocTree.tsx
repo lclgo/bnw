@@ -4,11 +4,11 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import {
     createDoc,
     deleteDoc,
-    exportAllDocs,
     getDocTree,
     moveDocToPosition,
     updateDocParent,
     updateDocTitle,
+    verifyExportPassword,
 } from "../services/storage";
 import type { DocNode } from "../types";
 import "./DocTree.css";
@@ -340,13 +340,17 @@ function DocTreeInner({
   };
 
   const handleExportAll = async () => {
+    const password = prompt("Please enter the export password:");
+    if (!password) return;
+
     setExporting(true);
     try {
-      const result = await exportAllDocs();
-      alert(`Exported ${result.count} documents to: ${result.exportPath}`);
+      const success = await verifyExportPassword(password);
+      if (!success) {
+        alert("Invalid password.");
+      }
     } catch (e) {
       console.error("Export failed:", e);
-      alert("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }

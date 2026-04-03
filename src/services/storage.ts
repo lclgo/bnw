@@ -205,14 +205,43 @@ export async function checkEditLock(docId: string): Promise<number> {
 
 // --- Export APIs ---
 
-export async function exportAllDocs(): Promise<{ success: boolean; exportPath: string; count: number }> {
-  const response = await fetch(`${API_BASE}/export/all`, { method: "POST" });
-  if (!response.ok) throw new Error("Failed to export all documents");
-  return await response.json();
+// Trigger browser download from a blob
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-export async function exportSingleDoc(docId: string): Promise<{ success: boolean; exportPath: string; filename: string }> {
-  const response = await fetch(`${API_BASE}/export/${docId}`, { method: "POST" });
+export async function verifyExportPassword(password: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/export/all`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (response.status === 403) return false;
+  if (!response.ok) throw new Error("Failed to export all documents");
+
+  const blob = await response.blob();
+  const zipName = `wiki-export-${new Date().toISOString().slice(0, 10)}.zip`;
+  downloadBlob(blob, zipName);
+  return true;
+}
+
+export async function exportSingleDoc(docId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/export/${docId}`, {
+    method: "POST",
+  });
   if (!response.ok) throw new Error("Failed to export document");
-  return await response.json();
+
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "document.md";
+
+  const blob = await response.blob();
+  downloadBlob(blob, filename);
 }
