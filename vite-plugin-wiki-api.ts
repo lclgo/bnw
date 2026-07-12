@@ -593,7 +593,7 @@ const routes: Array<{ method: string; pattern: RegExp; handler: ApiHandler }> = 
     pattern: /^\/api\/docs\/search/,
     handler: async (req, res) => {
       const query = new URL(req.url || "", "http://localhost").searchParams.get("q")?.toLowerCase() || "";
-      if (!query) return res.end("[]");
+      if (!query) { res.end("[]"); return; }
 
       const results: Array<{ id: string; title: string; matchText: string; matchType: "title" | "content" }> = [];
 

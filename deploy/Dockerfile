@@ -27,5 +27,4 @@ COPY deploy/nginx.conf /etc/nginx/http.d/wiki.conf
 COPY deploy/start.sh /start.sh
 RUN chmod +x /start.sh
 
-EXPOSE 37801
 CMD ["/bin/bash", "/start.sh"]
